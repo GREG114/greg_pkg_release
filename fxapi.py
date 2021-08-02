@@ -7,7 +7,7 @@ class fxapi():
     headers = {'content-Type':'application/json'}
     appsecret_crm=''
     appid=''
-    #替换成自己的吧，我这个你拿去也没用，放着我自己用的方便
+    #替换成自己的吧，我这个沙盒里的你拿去也没用，放着我自己用的方便
     currentuserid='FSUID_8C93C81AC05591B4941ADCEABC5F92B0'
     token=''
     corpid=''
@@ -347,6 +347,28 @@ class fxapi():
 
         }
         url='{}/cgi/crm/custom/v2/data/update'.format(self.host)  
+        res = requests.post(url,headers=self.headers,data=json.dumps(req).encode())
+        return json.loads(res.text)
+    
+    def Lead2Account(self,cuid,is_main,leadid):
+        req={
+            "corpAccessToken": self.token,
+            "corpId": self.corpid,
+            "currentOpenUserId": self.currentuserid,
+            "triggerWorkFlow":False,
+            "data":{
+                "dataList":{
+                    "AccountObj":{
+                        "_id":cuid,
+                        "is_main_leads":is_main
+                    }
+                },
+                "combineCRMFeed":True,
+                "leadsId":leadid
+            }
+
+        }
+        url='{}/cgi/crm/v2/leads/transfer'.format(self.host)  
         res = requests.post(url,headers=self.headers,data=json.dumps(req).encode())
         return json.loads(res.text)
     #获取员工列表
