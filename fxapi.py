@@ -16,7 +16,7 @@ class fxapi():
     host='https://open.fxiaoke.com'
 
 
-    def __init__(self,appid='FSAID_13198da',appsecret_crm='4943e565248044e59438ba637ad2187a',permanentCode='D024E16DC2F14B40EF88ACE95B3E0ED1'):
+    def __init__(self,appid,appsecret_crm,permanentCode):
         self.appid=appid
         self.appsecret_crm=appsecret_crm
         self.permanentCode=permanentCode
