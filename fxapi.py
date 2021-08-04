@@ -2,6 +2,7 @@ import requests
 import json
 import time
 import random
+import _thread
 from dateutil.parser import parse
 class fxapi():
     headers = {'content-Type':'application/json'}
@@ -83,7 +84,20 @@ class fxapi():
         res = requests.post(url,headers=self.headers,data=json.dumps(req).encode())
         return json.loads(res.text)
 
-
+    def cancelapproval(self,objectid,apiname,reson):
+        req={
+        "corpAccessToken": self.token,
+        "corpId": self.corpid,
+        "currentOpenUserId": self.currentuserid,
+        "data": {
+            "objectId": objectid,
+            "entityId": apiname,
+            "opinion": "取消审批"
+        }
+        } 
+        url = '{}/cgi/crm/v2/special/approval/instance/cancel'.format(self.host)
+        res = requests.post(url,headers=self.headers,data=json.dumps(req).encode())
+        return json.loads(res.text)
 
     def completeFlow(self,fsuid,data):
         req={
@@ -402,7 +416,7 @@ class fxapi():
         if 'parent_account_id' in cus['data']:
             return self.getdata(cus['data']['parent_account_id'],'AccountObj')
 
-
+    
 
     def getdatalist(self,apiname,limit=100,filters=[]):
         
