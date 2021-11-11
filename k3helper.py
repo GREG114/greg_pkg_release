@@ -46,7 +46,7 @@ class k3helper(object):
         else:
             return '00001'
 
-    def kquery(self,formid,fields,firstrow=0,filterstring='',perpage=0):
+    def kquery(self,formid,fields,firstrow=0,filterstring='',orderstring='',perpage=0):
         '''
         标准金蝶单页查询方法
         formid:表单类型
@@ -59,6 +59,7 @@ class k3helper(object):
             'FormId': formid,
             'FieldKeys': fields,
             'FilterString': filterstring,
+            "OrderString": orderstring,
             'StartRow': firstrow,
             'Limit': perpage
         }
@@ -67,17 +68,36 @@ class k3helper(object):
         return result
     
     #金蝶全量查询,自动翻页,需要表单id和字段
-    def queryall(self,formid,fields,filterstring=''):
+    def queryall(self,formid,fields,filterstring='',orderstring=''):
         result=[]
         firstrow=0
-        page = self.kquery(formid,fields, firstrow,filterstring)    
+        page = self.kquery(formid,fields, firstrow,filterstring,orderstring)    
         result += page
         while(len(page)==100):
             firstrow+=100
-            page = self.kquery(formid,fields,firstrow,filterstring)
+            page = self.kquery(formid,fields,firstrow,filterstring,orderstring)
             result += page
         return result
     
+    #保存辅助资料的方法，集成查号、保存、提交和审核
+    def assistance_create(self,name,k3_billhead_assistantdata):
+        newid = self.GetNewAssID(k3_billhead_assistantdata)
+        res = self.SaveASSISTANTDATA(newid,name,k3_billhead_assistantdata)
+        res = json.loads(res)
+        req_sub_audit={'Numbers':[newid]}
+        res_sub=self.api.Submit('BOS_ASSISTANTDATA_DETAIL',req_sub_audit)
+        res_sub = json.loads(res_sub)
+        res_audit = self.api.Audit('BOS_ASSISTANTDATA_DETAIL',req_sub_audit)   
+        res_audit = json.loads(res_audit) 
+        result={
+            'res_save':res['Result'],
+            'res_submit':res_sub['Result'],
+            'res_audit':res_audit['Result']
+        }
+        return result
+
+
+
     #通过名称获得编号
     def getFnumberByName(self,formid,fname):
 

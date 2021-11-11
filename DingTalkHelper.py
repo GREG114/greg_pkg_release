@@ -1,6 +1,7 @@
 import json
 import time
 import requests
+import datetime
 
 
 class DingTalkHelper:
@@ -33,6 +34,25 @@ class DingTalkHelper:
         result = json.loads(result.text)
         self.token = result['access_token']
         
+
+    def getleavetimebynames(self,from_date,to_date,userid,leave_names): 
+        from_date = datetime.datetime.strftime(from_date,'%Y-%m-%d %H:%M:%S')
+        to_date = datetime.datetime.strftime(to_date,'%Y-%m-%d %H:%M:%S')
+        # starttuple =int(time.mktime(start.timetuple()))*1000
+        # endtuple =int(time.mktime(end.timetuple()))*1000
+        url ='https://oapi.dingtalk.com/topapi/attendance/getleavetimebynames?access_token={}'.format(self.token)
+        obj = { 
+                'userid':userid,
+                'leave_names':leave_names,
+                'from_date':from_date,
+                'to_date':to_date
+            }
+        source = requests.post(url,headers=self.headers,data = json.dumps(obj,ensure_ascii=True).encode())
+        result = json.loads(source.text)
+        return result
+
+
+
     def sendMsg(self,data):
         data = json.dumps(data,ensure_ascii=True)
         api_path ='https://oapi.dingtalk.com/topapi/message/corpconversation/asyncsend_v2?access_token={}'.format(self.token)
@@ -151,6 +171,18 @@ class DingTalkHelper:
             ,'size':size
             ,'cursor':cursor
             }
+        source = requests.post(url,headers=self.headers,data = json.dumps(obj).encode())
+        result = json.loads(source.text)
+        return result
+
+    def getDL(self,pid,file_id):
+        obj = {
+            "request":{
+                'process_instance_id':pid,
+                'file_id':file_id1
+            }
+        }
+        url='https://oapi.dingtalk.com/topapi/processinstance/file/url/get?access_token={}'.format(self.token)
         source = requests.post(url,headers=self.headers,data = json.dumps(obj).encode())
         result = json.loads(source.text)
         return result

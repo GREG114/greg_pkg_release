@@ -41,7 +41,12 @@ class elkhelper():
         self.auth=auth
         self.headers= {'Content-Type': 'application/json'}
 
+
+
+
     def getworkhours(self,start,end):
+        start =start.replace(tzinfo=pytz.timezone('UTC'))   
+        end= end.replace(tzinfo=pytz.timezone('UTC'))   
         workdays=self.workdays
         #简易的时间合规函数,碰到时区不同只能处理utc时间和北京时间
         def reguladate(dt):
@@ -49,7 +54,7 @@ class elkhelper():
                 timestr=datetime.datetime.strftime(dt,'%Y-%m-%dT%H:%M:%S+00:00')
             else:
                 timestr=datetime.datetime.strftime(dt,'%Y-%m-%dT%H:%M:%S+08:00')
-            dt = parse(timestr)
+            dt = parse(timestr).replace(tzinfo=pytz.timezone('UTC'))
             return dt
         #核心算法,计算同一天内的工作小时数
         def getcdhours(start,end):   
@@ -102,10 +107,13 @@ class elkhelper():
                 if tmp.date() in workdays:
                     totalhours+=7.5
                 tmp+=datetime.timedelta(days=1)   
-            tmp=datetime.datetime(tmp.year,tmp.month,tmp.day,9,0)   
+            tmp=datetime.datetime(tmp.year,tmp.month,tmp.day,9,0).replace(tzinfo=pytz.timezone('UTC'))   
             tmp=reguladate(tmp) 
             totalhours+=getcdhours(tmp,end)
         return totalhours
+
+
+    
     def delete(self,index,id):
         url = '{}/{}/_doc/{}'.format(self.host,index,id)
         req = requests.delete(url,auth=self.auth)        
@@ -199,6 +207,32 @@ class elkhelper():
         else:
             return []
     
+    def query(self,index,field,str,size=8000):
+        body={
+        "query":{
+            "wildcard":{field+".keyword": {"value":"*{}*".format(str)}}
+        }
+        }
+        url = '{}/{}/_search?size={}'.format(self.host,index,size)
+        data = json.dumps(body,ensure_ascii=True)
+        res = requests.post(url,headers=self.headers,auth=self.auth,data=data.encode())
+        result = json.loads(res.text)
+        data = result['hits']['hits']
+        return data
+
+
+    def deletebyquery(self,index,field,str):
+        body={
+            "query":{
+                "wildcard":{field+".keyword": {"value":"*{}*".format(str)}}
+            }
+        }
+        url = '{}/{}/_delete_by_query'.format(self.host,index)
+        data = json.dumps(body,ensure_ascii=True)
+        res = requests.post(url,headers=self.headers,auth=self.auth,data=data.encode())
+        result = json.loads(res.text)
+        return result
+
     
     def searchAll(self,querystr):
         '''
@@ -223,3 +257,11 @@ class elkhelper():
             data+=list(x['_source'] for x in result['hits']['hits'])
         return data
 
+    def bulkbypage(self,data,limit):
+        page = int(len(data)/limit)
+        if len(data)%limit !=0:
+            page+=1
+        for i in range(0,page):
+            req = data[i*limit:][:limit]
+            res = json.loads(self.bulk('sh-crm-incomes',req))
+            print(res['errors'])

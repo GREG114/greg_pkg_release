@@ -2,7 +2,7 @@ import requests
 import json
 import time
 import random
-import _thread
+import threading
 from dateutil.parser import parse
 class fxapi():
     headers = {'content-Type':'application/json'}
@@ -111,7 +111,7 @@ class fxapi():
         res = requests.post(url,headers=self.headers,data=json.dumps(req).encode())
         return json.loads(res.text)
 
-
+    
 
     def objectinfo(self,apiname):
         req={
@@ -123,7 +123,7 @@ class fxapi():
             }
         url = '{}/cgi/crm/v2/object/describe'.format(self.host)
         res = requests.post(url,headers=self.headers,data=json.dumps(req).encode())
-        return res.text
+        return json.loads(res.text)
     def objectlist(self):
         req={
             "corpAccessToken":self.token,
@@ -217,8 +217,18 @@ class fxapi():
         }
         body = json.dumps(req)
         url='{}/cgi/crm/custom/v2/data/invalid'.format(self.host)  
-        res = requests.post(url,headers=self.headers,data=body.encode())
-        result = json.loads(res.text)
+        retry=0
+        while retry<3:
+            try:
+                res = res = requests.post(url,headers=self.headers,data=body.encode(),timeout=2)
+                return json.loads(res.text)
+            except Exception as ex:
+                print(ex)       
+        return '对象作废失败'
+
+
+
+
         return result
 
     def getlog(self,FilterMainID,pageSize=100,pageNumber=0):
@@ -327,8 +337,14 @@ class fxapi():
 
         }
         url='{}/cgi/crm/custom/v2/data/create'.format(self.host)  
-        res = requests.post(url,headers=self.headers,data=json.dumps(req).encode())
-        return json.loads(res.text)
+        retry=0
+        while retry<3:
+            try:
+                res = requests.post(url,headers=self.headers,data=json.dumps(req).encode(),timeout=2)
+                return json.loads(res.text)
+            except Exception as ex:
+                print(ex)       
+        return '对象创建失败'
 
 
 
@@ -348,12 +364,48 @@ class fxapi():
         res = requests.post(url,headers=self.headers,data=json.dumps(req).encode())
         return json.loads(res.text)
 
-    def objectmod(self,data,details={}):
+    def changeOwner(self,data,dataObjectApiName):
+        '''
+        "data": {
+            "dataObjectApiName":"object_Nyeoj__c",
+            "Data": [
+            {
+                "objectDataId": "5a9914fcf125ae0a1axxxxxx",
+                "ownerId": [
+                "FSUID_7B8A3925E40FA68630C0D7E9C3XXXXXX"
+                ]
+            }
+            ]
+        }
+        '''
         req={
             "corpAccessToken": self.token,
             "corpId": self.corpid,
             "currentOpenUserId": self.currentuserid,
-            "triggerWorkFlow":False,
+            "data":{
+                "Data":data,
+                "dataObjectApiName":dataObjectApiName
+            }
+
+        }
+        url='{}/cgi/crm/custom/v2/data/changeOwner'.format(self.host)  
+        res = requests.post(url,headers=self.headers,data=json.dumps(req).encode())
+        return json.loads(res.text)
+
+
+    def objectmod(self,data,details={},trigger=False):
+        '''
+        updateobj={
+            '_id':bid,
+            'dataObjectApiName':'QuoteObj',
+            'account_id':cuid
+        }   
+        '''
+        req={
+            "corpAccessToken": self.token,
+            "corpId": self.corpid,
+            "currentOpenUserId": self.currentuserid,
+            "triggerWorkFlow":trigger,
             "data":{
                 "object_data":data,
                 "details":details
@@ -361,8 +413,14 @@ class fxapi():
 
         }
         url='{}/cgi/crm/custom/v2/data/update'.format(self.host)  
-        res = requests.post(url,headers=self.headers,data=json.dumps(req).encode())
-        return json.loads(res.text)
+        retry=0
+        while retry<3:
+            try:
+                res = requests.post(url,headers=self.headers,data=json.dumps(req).encode(),timeout=3)
+                return json.loads(res.text)
+            except Exception as ex:
+                print(ex)       
+        return 'failed'
     
     def Lead2Account(self,cuid,is_main,leadid):
         req={
@@ -409,14 +467,120 @@ class fxapi():
         res = requests.post(url,headers=self.headers,data=json.dumps(body,ensure_ascii=True).encode())
         result = json.loads(res.text)
         return result
+
+    def delete(self,dataObjectApiName,idList):
+        req = {
+            "corpAccessToken": self.token,
+            "corpId": self.corpid,
+            "currentOpenUserId": self.currentuserid,
+            "data": {
+                "idList": idList,
+                "dataObjectApiName": dataObjectApiName
+            }
+        }
+        data=json.dumps(req,ensure_ascii=True)
+        res = requests.post(f'{self.host}/cgi/crm/custom/v2/data/delete',headers=self.headers,data=data.encode())
+        result = json.loads(res.text)
+        return result
+
+    def getData_thread(self,apiname,filters=[]):
+        lock=threading.Lock()        
+        datapool=[]
+        ts=[]   
+        def getdatalist(offset,apiname,filters):
+            nonlocal datapool,lock          
+            res = self.query(apiname,filters=filters,limit=200,offset=offset)
+            while(res['errorCode']!=0):
+                print('读取速度过快，缓缓')
+                time.sleep(3)
+                res = self.query(apiname,filters=filters,limit=200,offset=offset)
+            datalist = res['data']['dataList']
+            lock.acquire()
+            datapool+=datalist
+            print(len(datapool))
+            lock.release()
         
+        if filters==[]:            
+            filters=[
+            {
+                'field_name':'life_status',
+                'field_values':['normal'],
+                'operator':'EQ'
+            }    ]        
+        res = self.query(apiname,limit=1,filters=filters)
+        if res['errorCode']!=0:
+            return res
+
+        total = res['data']['total']
+        offset=0
+        while(offset<=total):       
+            t=threading.Thread(target=getdatalist,args=(offset,apiname,filters))
+            ts.append(t)
+            t.start()        
+            offset+=200
+        for t in ts:
+            t.join()
+        return datapool
+
+
+    def addteamMember(self,apiName,dataid,teamMemberInfo):
+        '''
+        teamMemberInfo=[
+            { 
+                teamMemberEmployee:成员ID列表
+                ,teamMemberRole:成员角色（1:负责人2:联合跟进人3:售后服务人员4:普通成员）
+                ,teamMemberPermissionType:相关团队权限类型(1:只读2:读写)
+            }
+        ]   
+        '''       
+        body =   {
+            "corpAccessToken": self.token,
+            "corpId": self.corpid,
+            "currentOpenUserId":self.currentuserid,
+            "apiName":apiName,
+            "data":{
+                "dataID":dataid,
+                "teamMemberInfo":teamMemberInfo                
+            }           
+        }
+        url = f'{self.host}/cgi/crm/team/edit'
+        res = requests.post(url,headers=self.headers,data=json.dumps(body,ensure_ascii=True).encode())
+        result = json.loads(res.text)
+        return result 
+
     
     def getparent(self,cusid):
         cus = self.getdata(cusid,'AccountObj')
         if 'parent_account_id' in cus['data']:
             return self.getdata(cus['data']['parent_account_id'],'AccountObj')
 
-    
+    def query(self,apiname,offset=0,limit=100,filters=[]):
+        req={
+        "corpAccessToken": self.token,
+        "corpId": self.corpid,
+        "currentOpenUserId": self.currentuserid,
+        "data": {      
+            "dataObjectApiName": apiname,# "AccountObj",
+            "search_query_info": {
+            "offset": offset,
+            "limit": limit,
+            "filters": filters
+            }
+        }
+        }
+        url = '{}/cgi/crm/custom/v2/data/query'.format(self.host)
+        retry=0
+        while retry<3:
+            try:
+                res = requests.post(url,headers=self.headers,data=json.dumps(req).encode(),timeout=3)
+                return json.loads(res.text)
+            except Exception as ex:
+                print(ex)       
+        return []
+
+
+
+
 
     def getdatalist(self,apiname,limit=100,filters=[]):
         
