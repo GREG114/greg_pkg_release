@@ -155,7 +155,7 @@ class fxapi():
         }
         url = '{}/cgi/crm/v2/object/unlock'.format(self.host)
         res = requests.post(url,headers=self.headers,data=json.dumps(req).encode())
-        return res.text
+        return json.loads(res.text)
 
     def lock(self,dataid,apiname):   
         req = {
@@ -172,7 +172,7 @@ class fxapi():
         }
         url = '{}/cgi/crm/v2/object/lock'.format(self.host)
         res = requests.post(url,headers=self.headers,data=json.dumps(req).encode())
-        return res.text
+        return json.loads(res.text)
 
 
     def get_process_list(self,apiname,dataid):
@@ -223,14 +223,9 @@ class fxapi():
                 res = res = requests.post(url,headers=self.headers,data=body.encode(),timeout=2)
                 return json.loads(res.text)
             except Exception as ex:
+                retry+=1
                 print(ex)       
         return '对象作废失败'
-
-
-
-
-        return result
-
     def getlog(self,FilterMainID,pageSize=100,pageNumber=0):
         '''
         1	LeadsObj	13	VisitingObj	40	AccountFinInfoObj
@@ -342,7 +337,9 @@ class fxapi():
             try:
                 res = requests.post(url,headers=self.headers,data=json.dumps(req).encode(),timeout=2)
                 return json.loads(res.text)
+                
             except Exception as ex:
+                retry+=1
                 print(ex)       
         return '对象创建失败'
 
@@ -419,6 +416,7 @@ class fxapi():
                 res = requests.post(url,headers=self.headers,data=json.dumps(req).encode(),timeout=3)
                 return json.loads(res.text)
             except Exception as ex:
+                retry+=1
                 print(ex)       
         return 'failed'
     

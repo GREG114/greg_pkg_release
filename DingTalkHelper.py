@@ -24,9 +24,10 @@ class DingTalkHelper:
         url = 'https://oapi.dingtalk.com/department/list?access_token={}&id={}&fetch_child=True'.format(token,id)
         request = requests.get(url)
         result = json.loads(request.text)
-        return result['department']
+        return result
 
-    def __init__(self,appsecret,appkey):
+    def __init__(self,appsecret,appkey,agentid=''):
+        self.agentid=agentid
         self.host = 'https://oapi.dingtalk.com'
         self.headers={'Content-Type': 'application/json'}
         url = self.host+'/gettoken?appsecret={}&appkey={}'.format(appsecret,appkey)
@@ -52,6 +53,58 @@ class DingTalkHelper:
         return result
 
 
+    def querydimission(self,offset,size):
+        '''
+        https://open.dingtalk.com/document/orgapp-server/intelligent-personnel-query-company-turnover-list
+        '''
+        req={
+        'offset':offset,
+        'size':size
+        }
+        data = json.dumps(req)
+        api_path ='https://oapi.dingtalk.com/topapi/smartwork/hrm/employee/querydimission?access_token={}'.format(self.token)
+        result = requests.post(api_path,headers=self.headers,data=data.encode())
+        result = json.loads(result.text)
+        return result
+
+    def queryonjob(self,status_list,offset,size):
+        '''
+        https://open.dingtalk.com/document/orgapp-server/intelligent-personnel-query-the-list-of-on-the-job-employees-of-the
+        '''
+        req={
+        'status_list':status_list,
+        'offset':offset,
+        'size':size
+        }
+        data = json.dumps(req)
+        api_path ='https://oapi.dingtalk.com/topapi/smartwork/hrm/employee/queryonjob?access_token={}'.format(self.token)
+        result = requests.post(api_path,headers=self.headers,data=data.encode())
+        result = json.loads(result.text)
+        return result   
+
+    def listdimission(self,userid_list):
+        req={
+            'userid_list':userid_list,
+        }
+        data = json.dumps(req)
+        api_path ='https://oapi.dingtalk.com/topapi/smartwork/hrm/employee/listdimission?access_token={}'.format(self.token)
+        result = requests.post(api_path,headers=self.headers,data=data.encode())
+        result = json.loads(result.text)
+        return result
+
+    def employeelist(self,userid_list,agentid,field_filter_list=None):
+        req={
+            'userid_list':userid_list,
+            'agentid':agentid
+        }
+        if field_filter_list!=None:
+            req['field_filter_list']=field_filter_list
+        data = json.dumps(req)
+        api_path ='https://oapi.dingtalk.com/topapi/smartwork/hrm/employee/v2/list?access_token={}'.format(self.token)
+        result = requests.post(api_path,headers=self.headers,data=data.encode())
+        result = json.loads(result.text)
+        return result
+
 
     def sendMsg(self,data):
         data = json.dumps(data,ensure_ascii=True)
@@ -59,6 +112,7 @@ class DingTalkHelper:
         result = requests.post(api_path,headers=self.headers,data=data.encode())
         result = json.loads(result.text)
         return result
+
 
     def withdrawProc(self,piid,opuser,remark):
         '''
@@ -179,7 +233,7 @@ class DingTalkHelper:
         obj = {
             "request":{
                 'process_instance_id':pid,
-                'file_id':file_id1
+                'file_id':file_id
             }
         }
         url='https://oapi.dingtalk.com/topapi/processinstance/file/url/get?access_token={}'.format(self.token)

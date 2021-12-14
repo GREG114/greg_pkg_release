@@ -9,7 +9,7 @@ class elkhelper():
     整体不做异常处理,请在使用时单独处理
     '''
 
-    def initialworkdays(self):
+    def initialworkdays(self):#私有方法，不用管
         workdays = self.searchAll('workday/_search?size=2000&q=workday:true')
         workdays = list( datetime.datetime.strptime(x['date'],'%Y%m%d').date() for x in workdays)
         workrange=[]
@@ -33,7 +33,7 @@ class elkhelper():
         self.workdays=workdays
         self.workrange=workrange
 
-    def __init__(self,host,auth):
+    def __init__(self,host,auth):#登陆
         '''
         auth:账号信息，格式： ('username':'password')
         '''
@@ -44,7 +44,7 @@ class elkhelper():
 
 
 
-    def getworkhours(self,start,end):
+    def getworkhours(self,start,end):#私有方法，不用管
         start =start.replace(tzinfo=pytz.timezone('UTC'))   
         end= end.replace(tzinfo=pytz.timezone('UTC'))   
         workdays=self.workdays
@@ -114,12 +114,12 @@ class elkhelper():
 
 
     
-    def delete(self,index,id):
+    def delete(self,index,id):#删除
         url = '{}/{}/_doc/{}'.format(self.host,index,id)
         req = requests.delete(url,auth=self.auth)        
         return json.loads(req.text)
         #日期时间格式处理
-    def Strfelktime(self,dt):
+    def Strfelktime(self,dt):#格式化时间字符串或datetime格式到es专用
         '''
         将字符串格式的时间日期转换成elk能够识别的格式,含北京时区
         '''
@@ -130,7 +130,7 @@ class elkhelper():
         else:
             timestr=datetime.datetime.strftime(dt,'%Y-%m-%dT%H:%M+08:00')
         return timestr
-    def put(self,index,obj):
+    def put(self,index,obj):#单个数据录入
         '''
         录入elk的方法
         host=主机地址[含端口号]
@@ -144,7 +144,7 @@ class elkhelper():
         return result
 
         
-    def bulk(self,index,dl):
+    def bulk(self,index,dl):#批量录入
         reqtext=''
         for obj in dl:
             o1={ "index" : { "_index" : index, "_id" :obj['id'] } }
@@ -154,7 +154,7 @@ class elkhelper():
             d3=d1+'\n'+d2+'\n'
             reqtext+=d3
         ss=requests.post(self.host+'/_bulk',auth=self.auth,headers=self.headers,data=reqtext.encode())
-        return ss.text
+        return json.loads(ss.text)
     def putDictList(self,index,dl):
         '''字典列表直接入elk
         自动将日期时间转换为elk时间
@@ -191,7 +191,18 @@ class elkhelper():
         else:
             return []
     
+    def stamp2elkdate(self,stamp):
+        if type(stamp)==int:
+            if len(str(stamp))==13:
+                req =datetime.datetime.fromtimestamp(stamp/1000)
+                res = self.Strfelktime(req)
+                return res
     
+            
+
+    def get_es_stamp(self):
+        return datetime.datetime.strftime(datetime.datetime.now(),'%Y-%m-%dT%H:%M+08:00')
+
     def search(self,querystr):
         '''
         单页查询,最大支持10000条数据
