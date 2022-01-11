@@ -36,6 +36,22 @@ class DingTalkHelper:
         self.token = result['access_token']
         
 
+
+    def task_create(self,pid,activity_id='',tasks=[]):#钉钉流程里创建待办，怀疑结束的流程无法操作，暂时没用
+        req={
+            'request':{
+            'agentid':self.agentid
+            ,'process_instance_id':pid
+            ,"activity_id": activity_id
+            ,'tasks':tasks
+            }
+            }
+        url = f'https://oapi.dingtalk.com/topapi/process/workrecord/task/create?access_token={self.token}'        
+        res = requests.post(url,headers=self.headers,data = json.dumps(req,ensure_ascii=True).encode())
+        result = json.loads(res.text)
+        return result
+
+
     def getleavetimebynames(self,from_date,to_date,userid,leave_names): 
         from_date = datetime.datetime.strftime(from_date,'%Y-%m-%d %H:%M:%S')
         to_date = datetime.datetime.strftime(to_date,'%Y-%m-%d %H:%M:%S')

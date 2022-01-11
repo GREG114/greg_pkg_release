@@ -9,7 +9,7 @@ class fxapi():
     appsecret_crm=''
     appid=''
     #替换成自己的吧，我这个沙盒里的你拿去也没用，放着我自己用的方便
-    currentuserid='FSUID_8C93C81AC05591B4941ADCEABC5F92B0'
+    currentuserid=''
     token=''
     corpid=''
     permanentCode=''
@@ -414,6 +414,7 @@ class fxapi():
         while retry<3:
             try:
                 res = requests.post(url,headers=self.headers,data=json.dumps(req).encode(),timeout=3)
+                print(req)
                 return json.loads(res.text)
             except Exception as ex:
                 retry+=1
