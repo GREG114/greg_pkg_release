@@ -9,7 +9,7 @@ class fxapi():
     appsecret_crm=''
     appid=''
     #替换成自己的吧，我这个沙盒里的你拿去也没用，放着我自己用的方便
-    currentuserid=''
+    currentuserid='FSUID_8C93C81AC05591B4941ADCEABC5F92B0'
     token=''
     corpid=''
     permanentCode=''
@@ -34,7 +34,39 @@ class fxapi():
         obj_res = json.loads(res.text)
         self.token=obj_res['corpAccessToken']
         self.corpid=obj_res['corpId']
-        
+
+    
+    def BatchCreate(self,total):
+        tc=0
+        def data_create(obj):
+            nonlocal tc
+            req = {
+                'object_data':obj
+            }
+            while True:
+                try:
+                    res = self.create(req,True)
+                    if res['errorCode']==0:
+                        tc-=1
+                        break
+                except Exception as Ex:
+                    print(Ex)
+                    print(obj)
+                    time.sleep(3)
+
+        ts=[]
+        for d in total:
+            t=threading.Thread(target=data_create,args=(d,))
+            while tc>=35:
+                # print('防止阻塞') 
+                time.sleep(5)
+            ts.append(t)
+            t.start()
+            tc+=1
+        for t in ts:
+            t.join()  
+
+
     @staticmethod
     def randomnames(args, numbers):
         result = []
@@ -48,6 +80,55 @@ class fxapi():
                 print(cpname)
         return result
 
+
+
+
+    def getobjlog(self,apiname,dataid):
+        req ={
+            "corpAccessToken": self.token,
+            "corpId": self.corpid,
+            "currentOpenUserId":self.currentuserid,
+            "data": {
+            "apiName": apiname,
+                "objectId": dataid,
+                "operationalType":"system",
+                "pageNumber": 1,
+                "pageSize": 200
+            }
+        }
+        data = json.dumps(req)
+        url = r'https://open.fxiaoke.com/cgi/crm/v2/object/getNewLogInfoListForWeb'
+        res = requests.post(url,headers = self.headers,data = data.encode())
+        result = json.loads(res.text)
+        recordList = result['data']['modifyRecordList']
+        pagecount = result['data']['pageInfo']['pageCount']
+        page=1
+        while page<pagecount:
+            page+=1
+            req['data']['pageNumber']=page
+            url = r'https://open.fxiaoke.com/cgi/crm/v2/object/getNewLogInfoListForWeb'
+            res = requests.post(url,headers = self.headers,data = data.encode())
+            result = json.loads(res.text)
+            recordList += result['data']['modifyRecordList']
+
+        return recordList
+
+    def clear_xiezuo(self,apiname,id):
+        req={
+            "corpAccessToken":self.token,
+            "corpId": self.corpid,
+            "currentOpenUserId": self.currentuserid,
+            "apiName": apiname,
+            "data": {
+                "dataID": id,
+                "teamMemberInfos":[
+                ]
+            }
+        }
+        data = json.dumps(req)
+        res = requests.post('https://open.fxiaoke.com/cgi/crm/team/edit',headers=self.headers,data=data.encode())
+        result = json.loads(res.text)
+        return result
 
     def get_process_approval_list(self,dataid):
         req={
@@ -216,16 +297,13 @@ class fxapi():
             }
         }
         body = json.dumps(req)
-        url='{}/cgi/crm/custom/v2/data/invalid'.format(self.host)  
-        retry=0
-        while retry<3:
-            try:
-                res = res = requests.post(url,headers=self.headers,data=body.encode(),timeout=2)
-                return json.loads(res.text)
-            except Exception as ex:
-                retry+=1
-                print(ex)       
-        return '对象作废失败'
+        url='{}/cgi/crm/custom/v2/data/invalid'.format(self.host)        
+        try:
+            res = res = requests.post(url,headers=self.headers,data=body.encode(),timeout=10)
+            return json.loads(res.text)
+        except Exception as ex:
+            raise(ex)    
+
     def getlog(self,FilterMainID,pageSize=100,pageNumber=0):
         '''
         1	LeadsObj	13	VisitingObj	40	AccountFinInfoObj
@@ -332,16 +410,11 @@ class fxapi():
 
         }
         url='{}/cgi/crm/custom/v2/data/create'.format(self.host)  
-        retry=0
-        while retry<3:
-            try:
-                res = requests.post(url,headers=self.headers,data=json.dumps(req).encode(),timeout=2)
-                return json.loads(res.text)
-                
-            except Exception as ex:
-                retry+=1
-                print(ex)       
-        return '对象创建失败'
+        try:
+            res = requests.post(url,headers=self.headers,data=json.dumps(req).encode(),timeout=10)
+            return json.loads(res.text)                
+        except Exception as ex:
+            raise(ex)       
 
 
 
@@ -410,16 +483,12 @@ class fxapi():
 
         }
         url='{}/cgi/crm/custom/v2/data/update'.format(self.host)  
-        retry=0
-        while retry<3:
-            try:
-                res = requests.post(url,headers=self.headers,data=json.dumps(req).encode(),timeout=3)
-                print(req)
-                return json.loads(res.text)
-            except Exception as ex:
-                retry+=1
-                print(ex)       
-        return 'failed'
+        try:
+            res = requests.post(url,headers=self.headers,data=json.dumps(req).encode(),timeout=20)
+            # print(req)
+            return json.loads(res.text)
+        except Exception as ex:
+            raise(ex)     
     
     def Lead2Account(self,cuid,is_main,leadid):
         req={
@@ -491,7 +560,7 @@ class fxapi():
             res = self.query(apiname,filters=filters,limit=200,offset=offset)
             while(res['errorCode']!=0):
                 print('读取速度过快，缓缓')
-                time.sleep(3)
+                time.sleep(8)
                 res = self.query(apiname,filters=filters,limit=200,offset=offset)
             datalist = res['data']['dataList']
             lock.acquire()
@@ -522,15 +591,10 @@ class fxapi():
         return datapool
 
 
-    def addteamMember(self,apiName,dataid,teamMemberInfo):
+    def addteamMember(self,apiName,dataids,teamMemberEmployee):
         '''
-        teamMemberInfo=[
-            { 
-                teamMemberEmployee:成员ID列表
-                ,teamMemberRole:成员角色（1:负责人2:联合跟进人3:售后服务人员4:普通成员）
-                ,teamMemberPermissionType:相关团队权限类型(1:只读2:读写)
-            }
-        ]   
+        teamMemberEmployee:list<str>
+        dataids:list<str>
         '''       
         body =   {
             "corpAccessToken": self.token,
@@ -538,11 +602,13 @@ class fxapi():
             "currentOpenUserId":self.currentuserid,
             "apiName":apiName,
             "data":{
-                "dataID":dataid,
-                "teamMemberInfo":teamMemberInfo                
+                'dataIDs': dataids
+                ,'teamMemberEmployee':teamMemberEmployee    
+                ,'teamMemberRole': 4
+                ,'teamMemberPermissionType': 2              
             }           
         }
-        url = f'{self.host}/cgi/crm/team/edit'
+        url = f'{self.host}/cgi/crm/team/add'
         res = requests.post(url,headers=self.headers,data=json.dumps(body,ensure_ascii=True).encode())
         result = json.loads(res.text)
         return result 
@@ -571,9 +637,10 @@ class fxapi():
         retry=0
         while retry<3:
             try:
-                res = requests.post(url,headers=self.headers,data=json.dumps(req).encode(),timeout=3)
+                res = requests.post(url,headers=self.headers,data=json.dumps(req).encode(),timeout=8)
                 return json.loads(res.text)
-            except Exception as ex:
+            except Exception as ex:                
+                retry+=1
                 print(ex)       
         return []
 
