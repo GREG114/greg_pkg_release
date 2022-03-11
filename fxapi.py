@@ -46,9 +46,11 @@ class fxapi():
             while True:
                 try:
                     res = self.create(req,True)
-                    if res['errorCode']==0:
+                    if res['errorCode']==0:                        
                         tc-=1
                         break
+                    else:
+                        print(res)
                 except Exception as Ex:
                     print(Ex)
                     print(obj)
