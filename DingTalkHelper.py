@@ -26,31 +26,16 @@ class DingTalkHelper:
         result = json.loads(request.text)
         return result
 
-    def __init__(self,appsecret,appkey,agentid=''):
-        self.agentid=agentid
+    def __init__(self,appsecret,appkey,agentid="",userid=''):
         self.host = 'https://oapi.dingtalk.com'
         self.headers={'Content-Type': 'application/json'}
+        self.userid=userid
+        self.agentid=agentid
         url = self.host+'/gettoken?appsecret={}&appkey={}'.format(appsecret,appkey)
         result = requests.get(url)
         result = json.loads(result.text)
         self.token = result['access_token']
         
-
-
-    def task_create(self,pid,activity_id='',tasks=[]):#钉钉流程里创建待办，怀疑结束的流程无法操作，暂时没用
-        req={
-            'request':{
-            'agentid':self.agentid
-            ,'process_instance_id':pid
-            ,"activity_id": activity_id
-            ,'tasks':tasks
-            }
-            }
-        url = f'https://oapi.dingtalk.com/topapi/process/workrecord/task/create?access_token={self.token}'        
-        res = requests.post(url,headers=self.headers,data = json.dumps(req,ensure_ascii=True).encode())
-        result = json.loads(res.text)
-        return result
-
 
     def getleavetimebynames(self,from_date,to_date,userid,leave_names): 
         from_date = datetime.datetime.strftime(from_date,'%Y-%m-%d %H:%M:%S')
@@ -69,23 +54,9 @@ class DingTalkHelper:
         return result
 
 
-    def querydimission(self,offset,size):
-        '''
-        https://open.dingtalk.com/document/orgapp-server/intelligent-personnel-query-company-turnover-list
-        '''
-        req={
-        'offset':offset,
-        'size':size
-        }
-        data = json.dumps(req)
-        api_path ='https://oapi.dingtalk.com/topapi/smartwork/hrm/employee/querydimission?access_token={}'.format(self.token)
-        result = requests.post(api_path,headers=self.headers,data=data.encode())
-        result = json.loads(result.text)
-        return result
-
     def queryonjob(self,status_list,offset,size):
         '''
-        https://open.dingtalk.com/document/orgapp-server/intelligent-personnel-query-the-list-of-on-the-job-employees-of-the
+        https://developers.dingtalk.com/document/app/intelligent-personnel-update-employee-file-information
         '''
         req={
         'status_list':status_list,
@@ -96,14 +67,26 @@ class DingTalkHelper:
         api_path ='https://oapi.dingtalk.com/topapi/smartwork/hrm/employee/queryonjob?access_token={}'.format(self.token)
         result = requests.post(api_path,headers=self.headers,data=data.encode())
         result = json.loads(result.text)
-        return result   
-
-    def listdimission(self,userid_list):
+        return result
+    
+    def queryonjob(self,status_list,offset,size):
         req={
-            'userid_list':userid_list,
+        'status_list':status_list,
+        'offset':offset,
+        'size':size
         }
         data = json.dumps(req)
-        api_path ='https://oapi.dingtalk.com/topapi/smartwork/hrm/employee/listdimission?access_token={}'.format(self.token)
+        api_path ='https://oapi.dingtalk.com/topapi/smartwork/hrm/employee/queryonjob?access_token={}'.format(self.token)
+        result = requests.post(api_path,headers=self.headers,data=data.encode())
+        result = json.loads(result.text)
+        return result
+
+    def departmentInfo(self,dept_id):
+        req={
+        'dept_id':dept_id
+        }
+        data = json.dumps(req)
+        api_path ='https://oapi.dingtalk.com/topapi/v2/department/get?access_token={}'.format(self.token)
         result = requests.post(api_path,headers=self.headers,data=data.encode())
         result = json.loads(result.text)
         return result
@@ -128,7 +111,6 @@ class DingTalkHelper:
         result = requests.post(api_path,headers=self.headers,data=data.encode())
         result = json.loads(result.text)
         return result
-
 
     def withdrawProc(self,piid,opuser,remark):
         '''
@@ -233,7 +215,7 @@ class DingTalkHelper:
     def getProcessListT(self,start,end,pid,size=20,cursor=0):
         starttuple =int(time.mktime(start.timetuple()))*1000
         endtuple =int(time.mktime(end.timetuple()))*1000
-        url ='https://oapi.dingtalk.com/topapi/processinstance/listids?access_token={}'.format(self.token)
+        url ='h en={}'.format(self.token)
         obj = { 
             'start_time':starttuple
             ,'end_time':endtuple
@@ -362,3 +344,127 @@ class DingTalkHelper:
         data = json.dumps(obj)
         req = requests.post(path,headers=self.headers,data=data.encode())
         return req
+
+
+
+    #宜搭api
+    def form_put_yida(self,formInstanceId='',updateFormDataJson=''):
+        req={
+            "appType" : "APP_R0V8RF60KSCN2W65L50A",
+            "systemToken" : "0H866O81PUO4E7N36P8SLCIR78D436B8PE59LC4",
+           "userId" : self.userid,
+            "formInstanceId" : formInstanceId,
+            "useLatestVersion" : True,
+            "updateFormDataJson" : updateFormDataJson
+        }
+        data = json.dumps(req)
+        url=f'https://api.dingtalk.com/v1.0/yida/forms/instances?x-acs-dingtalk-access-token={self.token}'
+        result = requests.put(url,headers=self.headers,data=data.encode())
+        return result.status_code
+    
+    def form_batchSave_yida(self,formUuid='',formDataJsonList=[],appType="",systemToken='',noExecuteExpression=False,keepRunningAfterException=False,asynchronousExecution=False):
+        '''
+        noExecuteExpression:是否不触发表单绑定的校验规则、关联业务规则和第三方服务回调。true：不触发
+        asynchronousExecution:是否需要宜搭服务端异步执行该任务。true：允许。
+        keepRunningAfterException:批量保存多条表单实例数据发生异常时是否跳过异常的表单实例并继续保存下一个表单实例数据。true：跳过
+        '''
+        req={
+        "noExecuteExpression" : noExecuteExpression,
+        "keepRunningAfterException":keepRunningAfterException,
+        "asynchronousExecution":asynchronousExecution,
+        "appType" : appType,
+        "systemToken" : systemToken,
+        "userId" : self.userid,
+        "formUuid" : formUuid,
+        "formDataJsonList" : formDataJsonList,
+        }
+        data = json.dumps(req)
+        url=f'https://api.dingtalk.com/v1.0/yida/forms/instances/batchSave?x-acs-dingtalk-access-token={self.token}'
+        result = requests.post(url,headers=self.headers,data=data.encode())
+        result = json.loads(result.text)
+        return result
+    def form_getAll_yida(self,uuid,searchFieldJson,apptype,systemtoken):
+        result =[]    
+        cp=1
+        res_targets = self.form_search_yida(apptype,searchFieldJson,uuid,systemtoken)
+        result+= res_targets['data']
+        while(len(result)< res_targets['totalCount']):
+            cp+=1
+            res_targets = self.form_search_yida(apptype,searchFieldJson,uuid,systemtoken,currentPage=cp)
+            result+= res_targets['data']
+        return result
+    def form_search_yida(self,appType='',searchFieldJson=''
+    ,formUuid='FORM-56666571BUP4QX8E9FHCABGX4W703UA9ZFG9LH'
+    ,systemToken="0H866O81PUO4E7N36P8SLCIR78D436B8PE59LC4"
+    ,currentPage=1
+    ):
+        req={
+        "appType" : appType,
+        "systemToken" : systemToken,
+        "userId" : self.userid,
+        "formUuid" : formUuid,
+        "searchFieldJson" : searchFieldJson,
+        "pageSize" : 100,
+        "currentPage":currentPage
+        }
+        data = json.dumps(req)
+        url=f'https://api.dingtalk.com/v1.0/yida/forms/instances/search?x-acs-dingtalk-access-token={self.token}'
+        result = requests.post(url,headers=self.headers,data=data.encode())
+        result = json.loads(result.text)
+        return result
+    def form_process_start_yida(self,appType="",formDataJson='',processCode='',formUuid='FORM-56666571BUP4QX8E9FHCABGX4W703UA9ZFG9LH',systemToken='0H866O81PUO4E7N36P8SLCIR78D436B8PE59LC4'):
+        req={
+        "appType" : appType,
+        "systemToken" : systemToken,
+        "userId" : self.userid,
+        "formUuid" : formUuid,
+        "formDataJson" : formDataJson,
+        "processCode" : processCode,
+        }
+        data = json.dumps(req)
+        url=f'https://api.dingtalk.com/v1.0/yida/processes/instances/start?x-acs-dingtalk-access-token={self.token}'
+        result = requests.post(url,headers=self.headers,data=data.encode())
+        result = json.loads(result.text)
+        return result
+    def form_definitions(self,systemToken='0H866O81PUO4E7N36P8SLCIR78D436B8PE59LC4',appType='APP_R0V8RF60KSCN2W65L50A',formUuid='FORM-56666571BUP4QX8E9FHCABGX4W703UA9ZFG9LH'):
+        self.headers['x-acs-dingtalk-access-token']=self.token
+        url=f'https://api.dingtalk.com/v1.0/yida/forms/definitions/{appType}/{formUuid}?systemToken={systemToken}&userId={self.userid}'
+        result = requests.get(url,headers=self.headers)
+        result = json.loads(result.text)
+        return result
+    def form_batchremove_yida(self,formUuid,formInstanceIdList,appType="",systemToken='0H866O81PUO4E7N36P8SLCIR78D436B8PE59LC4',asynchronousExecution=True):
+        req={
+        "appType" : appType,
+        "systemToken" : systemToken,
+        "userId" : self.userid,
+        "formUuid" : formUuid,
+        "formInstanceIdList":formInstanceIdList,
+        "asynchronousExecution":asynchronousExecution
+        }
+
+        data = json.dumps(req)
+        url=f'https://api.dingtalk.com/v1.0/yida/forms/instances/batchRemove?x-acs-dingtalk-access-token={self.token}'
+        result = requests.post(url,headers=self.headers,data=data.encode())
+        result = json.loads(result.text)
+        return result
+    def form_batch_update(self,
+        appType="",systemToken='0H866O81PUO4E7N36P8SLCIR78D436B8PE59LC4',updateFormDataJson='',formUuid='',formInstanceIdList=[],
+        noExecuteExpression=False,ignoreEmpty=True,useLatestFormSchemaVersion=True,asynchronousExecution=True):
+
+        req={
+        "noExecuteExpression" : noExecuteExpression,
+        "formUuid" : formUuid,
+        "updateFormDataJson" : updateFormDataJson,
+        "appType" : appType,
+        "ignoreEmpty" : ignoreEmpty,
+        "systemToken" :  systemToken,
+        "useLatestFormSchemaVersion" : useLatestFormSchemaVersion,
+        "asynchronousExecution" : asynchronousExecution,
+        "formInstanceIdList" : formInstanceIdList,
+        "userId" : self.userid,
+        }
+        data = json.dumps(req)
+        url=f'https://api.dingtalk.com/v1.0/yida/forms/instances/components?x-acs-dingtalk-access-token={self.token}'
+        result = requests.put(url,headers=self.headers,data=data.encode())
+        result = json.loads(result.text)
+        return result

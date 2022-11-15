@@ -9,7 +9,7 @@ class fxapi():
     appsecret_crm=''
     appid=''
     #替换成自己的吧，我这个沙盒里的你拿去也没用，放着我自己用的方便
-    currentuserid='FSUID_8C93C81AC05591B4941ADCEABC5F92B0'
+    currentuserid=''
     token=''
     corpid=''
     permanentCode=''
@@ -71,6 +71,20 @@ class fxapi():
 
     @staticmethod
     def randomnames(args, numbers):
+        ''' 
+            list1 ={
+                "1":[139,137,186,199],
+                "2":[1,2,3,4,5,6,7,8,9,0],
+                "3":[1,2,3,4,5,6,7,8,9,0],
+                "4":[1,2,3,4,5,6,7,8,9,0],
+                "5":[1,2,3,4,5,6,7,8,9,0],
+                "6":[1,2,3,4,5,6,7,8,9,0],
+                "7":[1,2,3,4,5,6,7,8,9,0],
+                "8":[1,2,3,4,5,6,7,8,9,0],
+                "9":[1,2,3,4,5,6,7,8,9,0],
+            }
+
+        '''
         result = []
         while len(result) < numbers:
             cpname = ''
@@ -86,35 +100,37 @@ class fxapi():
 
 
     def getobjlog(self,apiname,dataid):
-        req ={
-            "corpAccessToken": self.token,
-            "corpId": self.corpid,
-            "currentOpenUserId":self.currentuserid,
-            "data": {
-            "apiName": apiname,
-                "objectId": dataid,
-                "operationalType":"system",
-                "pageNumber": 1,
-                "pageSize": 200
+        try:
+            req ={
+                "corpAccessToken": self.token,
+                "corpId": self.corpid,
+                "currentOpenUserId":self.currentuserid,
+                "data": {
+                "apiName": apiname,
+                    "objectId": dataid,
+                    "operationalType":"system",
+                    "pageNumber": 1,
+                    "pageSize": 200
+                }
             }
-        }
-        data = json.dumps(req)
-        url = r'https://open.fxiaoke.com/cgi/crm/v2/object/getNewLogInfoListForWeb'
-        res = requests.post(url,headers = self.headers,data = data.encode())
-        result = json.loads(res.text)
-        recordList = result['data']['modifyRecordList']
-        pagecount = result['data']['pageInfo']['pageCount']
-        page=1
-        while page<pagecount:
-            page+=1
-            req['data']['pageNumber']=page
+            data = json.dumps(req)
             url = r'https://open.fxiaoke.com/cgi/crm/v2/object/getNewLogInfoListForWeb'
             res = requests.post(url,headers = self.headers,data = data.encode())
             result = json.loads(res.text)
-            recordList += result['data']['modifyRecordList']
+            recordList = result['data']['modifyRecordList']
+            pagecount = result['data']['pageInfo']['pageCount']
+            page=1
+            while page<pagecount:
+                page+=1
+                req['data']['pageNumber']=page
+                url = r'https://open.fxiaoke.com/cgi/crm/v2/object/getNewLogInfoListForWeb'
+                res = requests.post(url,headers = self.headers,data = data.encode())
+                result = json.loads(res.text)
+                recordList += result['data']['modifyRecordList']
 
-        return recordList
-
+            return recordList
+        except:
+            return False
     def clear_xiezuo(self,apiname,id):
         req={
             "corpAccessToken":self.token,
@@ -131,6 +147,38 @@ class fxapi():
         res = requests.post('https://open.fxiaoke.com/cgi/crm/team/edit',headers=self.headers,data=data.encode())
         result = json.loads(res.text)
         return result
+
+    def approvalInstances_query(self,flowApiName,state=None,startTime=None,endTime=None,pageNumber=1,pageSize=50):
+        '''
+            req={
+                "corpAccessToken": "CORP_ACCESS_TOKEN",#必填
+                "corpId": "CORP_ID",#必填
+                "currentOpenUserId": self.currentuserid,#必填
+                "flowApiName": "apprDLWEK4A83N__crmapp",#必填
+                "state":"in_progress",
+                "startTime" : 1473339930303,
+                "endTime" : 1498798899999,
+                "pageNumber" : 1,
+                "pageSize" : 50
+            }
+        '''
+        req={
+            "corpAccessToken": self.token,#必填
+            "corpId": self.corpid,#必填
+            "currentOpenUserId": self.currentuserid,#必填
+            "flowApiName": flowApiName,#必填
+            "state":state,
+            "startTime" : startTime,
+            "endTime" : endTime,
+            "pageNumber" : pageNumber,
+            "pageSize" : pageSize
+        }
+        url = '{}/cgi/crm/approvalInstances/query'.format(self.host)
+        res = requests.post(url,headers=self.headers,data=json.dumps(req).encode())
+        return json.loads(res.text)
+
+    
+
 
     def get_process_approval_list(self,dataid):
         req={
@@ -553,21 +601,20 @@ class fxapi():
         result = json.loads(res.text)
         return result
 
-    def getData_thread(self,apiname,filters=[]):
+    def getData_thread(self,apiname,filters=[],fieldProjection=[]):
         lock=threading.Lock()        
         datapool=[]
         ts=[]   
-        def getdatalist(offset,apiname,filters):
+        def getdatalist(offset,apiname,filters,fieldProjection):
             nonlocal datapool,lock          
-            res = self.query(apiname,filters=filters,limit=200,offset=offset)
+            res = self.query(apiname,filters=filters,limit=200,offset=offset,fieldProjection=fieldProjection)
             while(res['errorCode']!=0):
                 print('读取速度过快，缓缓')
                 time.sleep(8)
-                res = self.query(apiname,filters=filters,limit=200,offset=offset)
+                res = self.query(apiname,filters=filters,limit=200,offset=offset,fieldProjection=fieldProjection)
             datalist = res['data']['dataList']
             lock.acquire()
-            datapool+=datalist
-            print(len(datapool))
+            datapool+=datalist            
             lock.release()
         
         if filters==[]:            
@@ -584,7 +631,7 @@ class fxapi():
         total = res['data']['total']
         offset=0
         while(offset<=total):       
-            t=threading.Thread(target=getdatalist,args=(offset,apiname,filters))
+            t=threading.Thread(target=getdatalist,args=(offset,apiname,filters,fieldProjection))
             ts.append(t)
             t.start()        
             offset+=200
@@ -621,7 +668,7 @@ class fxapi():
         if 'parent_account_id' in cus['data']:
             return self.getdata(cus['data']['parent_account_id'],'AccountObj')
 
-    def query(self,apiname,offset=0,limit=100,filters=[]):
+    def query(self,apiname,offset=0,limit=100,filters=[],fieldProjection=[]):
         req={
         "corpAccessToken": self.token,
         "corpId": self.corpid,
@@ -631,7 +678,8 @@ class fxapi():
             "search_query_info": {
             "offset": offset,
             "limit": limit,
-            "filters": filters
+            "filters": filters,
+            "fieldProjection":fieldProjection
             }
         }
         }
