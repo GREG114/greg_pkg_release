@@ -180,6 +180,7 @@ class DingTalkHelper:
         while( 'next_cursor' in res['result']):
             res = self.getProcIdList(res['result']['next_cursor'])
             pds += res['result']['process_list']
+
         result = list(filter(lambda  x: procname in x['name'],pds))
         return result
 
