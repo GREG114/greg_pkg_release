@@ -10,8 +10,9 @@ class YiDaHelper:
         else:
             pages=int(pages)
         for i in range(0,pages):
-            list_s=i+size
+            list_s=i*size
             list_e=list_s+size
+            # print(f"开始：{list_s} 结束：{list_e}")
             sub = dataList[list_s:list_e]
             fun(sub)
 
