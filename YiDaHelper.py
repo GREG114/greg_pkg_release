@@ -2,12 +2,38 @@ import json
 import requests
 class YiDaHelper:
     @staticmethod
-    #查询用户信息的方法
-    def getuserinfo(userid:str,token:str):
+    
+    def byPage(dataList,size,fun):
+        pages = len(dataList)/size
+        if pages%1!=0:
+            pages = int(pages)+1
+        else:
+            pages=int(pages)
+        for i in range(0,pages):
+            list_s=i+size
+            list_e=list_s+size
+            sub = dataList[list_s:list_e]
+            fun(sub)
+
+    @staticmethod
+    def getdpusers(token,dpid,offset=0,size=100):
+        userurl = 'https://oapi.dingtalk.com/user/listbypage?access_token={}&department_id={}&offset={}&size={}'.format(token,dpid,offset,size)
+        result = requests.get(userurl)
+        users = json.loads(result.text)
+        return users
+    @staticmethod
+    def getuserinfo(userid,token):
         userurl='https://oapi.dingtalk.com/user/get?access_token={}&userid={}'.format(token,userid)    
         result = requests.get(userurl)
         user = json.loads(result.text)
         return user 
+
+    @staticmethod
+    def getDepartments(token,id=1):
+        url = 'https://oapi.dingtalk.com/department/list?access_token={}&id={}&fetch_child=True'.format(token,id)
+        request = requests.get(url)
+        result = json.loads(request.text)
+        return result
     #构造函数，userid没有的话宜搭后面的不好操作，但是初始化时不知道可以不填，之后获取好记得写过来就可以
     def __init__(self,appkey,appsecret,appType,systemToken,userid=""):
         self.host = 'https://oapi.dingtalk.com'
