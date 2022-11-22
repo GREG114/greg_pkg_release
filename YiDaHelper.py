@@ -88,14 +88,31 @@ class YiDaHelper:
             result = json.loads(result.text)
             return result
         else:
-            raise Exception(f"数据更新异常:{result}")
+            raise Exception(f"数据更新异常:{result.text}")
 
     def formInfo(self,formUuid:str):
         url=f'https://api.dingtalk.com/v1.0/yida/forms/definitions/{self.appType}/{formUuid}?systemToken={self.systemToken}&userId={self.userid}'
         result = requests.get(url,headers=self.headers)
         result = json.loads(result.text)
         return result
-    
+    def getformInfo(self,uuid):
+        res = self.formInfo(formUuid=uuid)
+        result = res['result']
+        final=[]
+        for r in result:
+            label = json.loads(r['label'])
+            if not 'zh_CN' in label or label['zh_CN']=='':continue
+            obj = {
+                "字段名":label['zh_CN'],
+                "类型":r['componentName'],
+            }
+            if 'fieldId' in r:        obj['fieldId']=r['fieldId']
+            if 'parentId' in r:        obj['parentId']=r['parentId']    
+            final.append(obj)
+            print(obj)
+
+
+
     def processStart(self,processCode:str,formUuid:str,formDataJson:str):
         req={
             "appType" : self.appType,
@@ -114,7 +131,7 @@ class YiDaHelper:
         else:
             raise Exception(f"数据更新异常:{result}")
 
-    def formSearch(self,formUuid:str,searchFieldJson:str,currentPage=1):
+    def formSearch(self,formUuid:str,searchFieldJson:str,currentPage=0):
         req={
             "appType" : self.appType,
             "systemToken" : self.systemToken,
@@ -131,7 +148,7 @@ class YiDaHelper:
             result = json.loads(result.text)
             return result
         else:
-            raise Exception(f"数据更新异常:{result}")
+            raise Exception(f"异常:{result.text}")
     
     def getAllData(self,uuid:str,searchFieldJson:str):
         result =[]    
