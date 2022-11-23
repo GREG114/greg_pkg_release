@@ -48,6 +48,34 @@ class YiDaHelper:
         self.token = result['access_token']
         self.headers['x-acs-dingtalk-access-token']=self.token
     
+
+
+    def BatchUpdateDiff(self,uuid:str,updateFormDataJsonMap:map,asynchronousExecution=True,noExecuteExpression=False,ignoreEmpty=True,useLatestFormSchemaVersion=True):
+        '''
+            批量更新不同数据且不同值的方法，比如a数据的某个字段更新为1，b数据的相同字段更新为2
+            updateFormDataJsonMap:是一个字典，key为数据的实例id，值是需要更新的内容（需要序列化为json字符串），如：
+                {'FINST-DJ766LB1QCI5QHMWB1K93AAVDL053URRXXSALTYY': '{"textField_lasxqgdc": "test1"}'}
+        '''
+        req={
+        "noExecuteExpression" : noExecuteExpression,
+        "formUuid" : uuid,
+        "updateFormDataJsonMap" : updateFormDataJsonMap,
+        "appType" : self.appType,
+        "ignoreEmpty" : ignoreEmpty,
+        "systemToken" :  self.systemToken,
+        "useLatestFormSchemaVersion" : useLatestFormSchemaVersion,
+        "asynchronousExecution" : asynchronousExecution,
+        "userId" : self.userid,
+        }
+        data = json.dumps(req)
+        url=f'https://api.dingtalk.com/v1.0/yida/forms/instances/datas'
+        result = requests.put(url,headers=self.headers,data=data.encode())
+        if result.status_code in [200,201,202]:
+            result = json.loads(result.text)
+            return result
+        else:
+            raise Exception(f"数据更新异常:{result}")
+
     def batchUpdate(self,formUuid:str,formInstanceIdList:list
     ,updateFormDataJson:str,noExecuteExpression=False,ignoreEmpty=True,
     useLatestFormSchemaVersion=True,asynchronousExecution=True):
