@@ -192,7 +192,7 @@ class elkhelper():
             d2=json.dumps(o2,ensure_ascii=False)
             d3=d1+'\n'+d2+'\n'
             reqtext+=d3
-        ss=requests.post(self.host+'/_bulk',auth=self.auth,headers=self.headers,data=reqtext.encode())
+        ss=requests.post(self.host+'/_bulk',auth=self.auth,headers=self.headers,data=reqtext.encode(),verify=False)
         return json.loads(ss.text)
     def putDictList(self,index,dl):
         '''字典列表直接入elk
@@ -330,7 +330,7 @@ class elkhelper():
         index/_search?size=xxxx?q=xxxx:xxx   
         '''
         url = '{}/{}&scroll=1m'.format(self.host,querystr)
-        req = requests.get(url,auth=self.auth)
+        req = requests.get(url,auth=self.auth,verify=False)
         result =json.loads(req.text)
         if 'hits' in result:
             data = list(x['_source'] for x in result['hits']['hits'])
@@ -341,7 +341,7 @@ class elkhelper():
         total = result['hits']['total']['value']
         while len(data)<total:
             url='{}/_search/scroll?scroll_id={}&scroll=1m'.format(self.host,sid)
-            req=requests.get(url,auth=self.auth)
+            req=requests.get(url,auth=self.auth,verify=False)
             result=json.loads(req.text)
             data+=list(x['_source'] for x in result['hits']['hits'])
         return data
